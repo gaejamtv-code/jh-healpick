@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>힐러 픽 어시스턴트</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<style>
+  body { background:#09090b; }
+  * { -webkit-tap-highlight-color: transparent; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useMemo } = React;
+
+const HEROES = {
+  "탱": [
+    ["라인하르트", { brawl: 1 }], ["윈스턴", { dive: 1 }], ["디바", { dive: 0.8, brawl: 0.2 }],
+    ["자리야", { brawl: 1 }], ["시그마", { poke: 0.7, hold: 0.3 }], ["오리사", { brawl: 0.5, hold: 0.5 }],
+    ["레킹볼", { dive: 1 }], ["둠피스트", { dive: 1 }], ["마우가", { brawl: 1 }], ["정커퀸", { brawl: 1 }],
+    ["라마트라", { brawl: 0.7, poke: 0.3 }], ["해저드", { brawl: 0.6, dive: 0.4 }], ["로드호그", { brawl: 0.6, hold: 0.4 }],
+  ],
+  "딜": [
+    ["트레이서", { dive: 1 }], ["겐지", { dive: 1 }], ["솜브라", { dive: 1 }], ["리퍼", { brawl: 0.6, dive: 0.4 }],
+    ["캐서디", { poke: 0.6, brawl: 0.4 }], ["솔저76", { poke: 0.6, brawl: 0.4 }], ["애쉬", { poke: 1 }],
+    ["위도우", { poke: 1 }], ["한조", { poke: 1 }], ["바스티온", { poke: 0.5, hold: 0.5 }], ["정크랫", { hold: 0.6, brawl: 0.4 }],
+    ["메이", { brawl: 0.6, hold: 0.4 }], ["파라", { poke: 0.6, dive: 0.4 }], ["에코", { poke: 0.5, dive: 0.5 }],
+    ["시메트라", { hold: 0.6, brawl: 0.4 }], ["토르비욘", { hold: 1 }], ["소전", { poke: 0.6, brawl: 0.4 }],
+    ["벤처", { dive: 0.6, brawl: 0.4 }], ["프레야", { dive: 0.5, poke: 0.5 }],
+  ],
+  "힐": [
+    ["아나", { poke: 0.6, hold: 0.4 }], ["바티스트", { poke: 0.5, hold: 0.5 }], ["브리기테", { brawl: 1 }],
+    ["일리아리", { poke: 0.7, hold: 0.3 }], ["주노", { dive: 0.4, poke: 0.6 }], ["키리코", { dive: 0.6, brawl: 0.4 }],
+    ["라이프위버", { hold: 0.6, brawl: 0.4 }], ["루시우", { brawl: 0.6, dive: 0.4 }], ["메르시", { dive: 0.5, poke: 0.5 }],
+    ["모이라", { brawl: 0.7, dive: 0.3 }], ["젠야타", { poke: 0.7, dive: 0.3 }],
+  ],
+};
+const ALL_ARCH = {};
+Object.values(HEROES).flat().forEach(([n, a]) => (ALL_ARCH[n] = a));
+
+const SUP = {
+  "아나":       { selfPeel: 0, teamPeel: 1, poke: 3, brawl: 1, anti: 3, dive: 1, hold: 2, tag: "안티·수면·나노. 사거리 깡패, 근데 기동 0" },
+  "바티스트":   { selfPeel: 1, teamPeel: 1, poke: 2, brawl: 2, anti: 3, dive: 1, hold: 3, tag: "불사·창문. 버티기/한타 다 됨" },
+  "브리기테":   { selfPeel: 2, teamPeel: 3, poke: 0, brawl: 3, anti: 1, dive: 0, hold: 2, tag: "안티다이브 정석. 백라인 경호" },
+  "일리아리":   { selfPeel: 1, teamPeel: 1, poke: 3, brawl: 1, anti: 2, dive: 1, hold: 2, tag: "기둥+태양총. 포크전 힐러" },
+  "주노":       { selfPeel: 2, teamPeel: 1, poke: 2, brawl: 2, anti: 2, dive: 2, hold: 1, tag: "속도링·궁. 기동+버프 만능" },
+  "키리코":     { selfPeel: 3, teamPeel: 2, poke: 1, brawl: 2, anti: 2, dive: 2, hold: 1, tag: "순보+스즈+키츠네. 다이브 천적" },
+  "라이프위버": { selfPeel: 1, teamPeel: 2, poke: 0, brawl: 2, anti: 2, dive: 0, hold: 3, tag: "그립·생명나무. 농성 버티기" },
+  "루시우":     { selfPeel: 3, teamPeel: 1, poke: 0, brawl: 3, anti: 2, dive: 2, hold: 1, tag: "속도·비트. 브롤/다이브 윤활유" },
+  "메르시":     { selfPeel: 3, teamPeel: 0, poke: 1, brawl: 1, anti: 1, dive: 1, hold: 1, tag: "포켓·부활. 히트스캔 옆에서 빛남" },
+  "모이라":     { selfPeel: 2, teamPeel: 1, poke: 0, brawl: 3, anti: 1, dive: 1, hold: 2, tag: "페이드+고유지. 근접 난전 강" },
+  "젠야타":     { selfPeel: 0, teamPeel: 0, poke: 3, brawl: 1, anti: 3, dive: 2, hold: 1, tag: "불협+초월. 폭딜 보조, 근데 잘 죽음" },
+};
+
+const MAPS = [
+  ["맵 미선택", {}], ["왕의 길 (혼합)", { brawl: 0.4 }], ["아이헨발데 (혼합)", { brawl: 0.4 }],
+  ["눔바니 (혼합)", { brawl: 0.2, poke: 0.2 }], ["도라도 (호위)", { poke: 0.3 }], ["리알토 (호위)", { poke: 0.3 }],
+  ["서킷 로얄 (호위)", { poke: 0.5 }], ["하바나 (호위)", { poke: 0.3 }], ["콜로세오 (밀기)", { brawl: 0.4 }],
+  ["부산 (쟁탈)", { brawl: 0.4 }], ["일리오스 (쟁탈)", { brawl: 0.3, poke: 0.2 }],
+];
+
+const DRIVER_LABEL = {
+  diveSurvive: "적 다이브 카운터·생존", pokeWar: "적 포크전 사거리 우위", brawlSustain: "적 브롤 상대 유지력·안티",
+  siege: "거점·농성 돌파(포크/궁)", allyDive: "아군 다이브 시너지", allyBrawl: "아군 브롤 한타 시너지",
+  allyPoke: "아군 포크 보좌", mapBrawl: "맵 성향: 근접 브롤", mapPoke: "맵 성향: 장거리 포크",
+  mapDive: "맵 성향: 다이브", mapHold: "맵 성향: 농성", attack: "공격 강제이니시·템포",
+  defense: "수비 버티기·라인 유지", early: "초반 첫 한타 장악", late: "막판 농성 생존",
+};
+
+function profile(names) {
+  const p = { dive: 0, brawl: 0, poke: 0, hold: 0 };
+  if (!names.length) return p;
+  names.forEach((n) => { const a = ALL_ARCH[n] || {}; Object.keys(p).forEach((k) => (p[k] += a[k] || 0)); });
+  Object.keys(p).forEach((k) => (p[k] /= names.length));
+  return p;
+}
+
+function scoreSupport(s, ctx) {
+  const { en, al, map, side, phase } = ctx;
+  const T = {
+    diveSurvive: en.dive * (s.selfPeel * 1.2 + s.teamPeel * 1.4),
+    pokeWar: en.poke * (s.poke * 1.3 + s.selfPeel * 0.4),
+    brawlSustain: en.brawl * (s.brawl * 1.0 + s.anti * 1.2),
+    siege: en.hold * (s.poke * 0.8 + s.anti * 1.0),
+    allyDive: al.dive * (s.dive * 1.3 + s.selfPeel * 0.5),
+    allyBrawl: al.brawl * (s.brawl * 1.2),
+    allyPoke: al.poke * (s.poke * 1.0),
+    mapBrawl: (map.brawl || 0) * (s.brawl * 0.6 + s.anti * 0.3),
+    mapPoke: (map.poke || 0) * (s.poke * 0.7 + s.selfPeel * 0.2),
+    mapDive: (map.dive || 0) * (s.selfPeel * 0.6 + s.teamPeel * 0.5),
+    mapHold: (map.hold || 0) * (s.hold * 0.6),
+    attack: side === "attack" ? s.anti * 0.6 + s.dive * 0.4 : 0,
+    defense: side === "defense" ? s.hold * 0.8 + s.teamPeel * 0.3 : 0,
+    early: phase === "early" ? s.anti * 0.4 + s.brawl * 0.2 : 0,
+    late: phase === "late" ? s.hold * 0.6 + s.selfPeel * 0.3 : 0,
+  };
+  const base = (s.selfPeel + s.teamPeel + s.poke + s.brawl + s.anti + s.hold + s.dive) * 0.12;
+  const total = base + Object.values(T).reduce((a, b) => a + b, 0);
+  const drivers = Object.entries(T).filter(([, v]) => v > 0.15).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([k]) => DRIVER_LABEL[k]);
+  return { total, drivers };
+}
+
+const NONE = 0, ALLY = 1, ENEMY = 2;
+
+function Control({ label, children }) {
+  return (<div><div className="text-[10px] tracking-[0.2em] uppercase text-zinc-500 mb-1.5">{label}</div>{children}</div>);
+}
+function Toggle({ value, onChange, opts }) {
+  return (<div className="flex border border-zinc-700 rounded-sm overflow-hidden">{opts.map(([v, l]) => (
+    <button key={v} onClick={() => onChange(v)} className={"flex-1 py-2 text-sm transition-colors " + (value === v ? "bg-amber-500 text-zinc-950 font-bold" : "bg-zinc-900 text-zinc-400")}>{l}</button>))}</div>);
+}
+function Legend({ color, label }) {
+  return (<span className="flex items-center gap-1.5 text-zinc-400"><span className={"w-2.5 h-2.5 rounded-sm " + color}></span>{label}</span>);
+}
+
+function App() {
+  const [assign, setAssign] = useState({});
+  const [side, setSide] = useState("attack");
+  const [phase, setPhase] = useState("early");
+  const [mapIdx, setMapIdx] = useState(0);
+
+  const ally = Object.keys(assign).filter((h) => assign[h] === ALLY);
+  const enemy = Object.keys(assign).filter((h) => assign[h] === ENEMY);
+
+  const cycle = (h) => setAssign((p) => {
+    const next = ((p[h] || NONE) + 1) % 3; const n = { ...p };
+    if (next === NONE) delete n[h]; else n[h] = next; return n;
+  });
+
+  const ranked = useMemo(() => {
+    const ctx = { en: profile(enemy), al: profile(ally), map: MAPS[mapIdx][1], side, phase };
+    const arr = Object.entries(SUP).map(([name, s]) => ({ name, tag: s.tag, ...scoreSupport(s, ctx) }));
+    arr.sort((a, b) => b.total - a.total);
+    const max = arr[0] ? arr[0].total : 1;
+    return arr.map((x) => ({ ...x, pct: Math.round((x.total / max) * 100) }));
+  }, [ally.join(), enemy.join(), side, phase, mapIdx]);
+
+  const hasInput = ally.length + enemy.length > 0;
+
+  return (
+    <div style={{ fontFamily: "ui-monospace, 'SF Mono', Menlo, monospace" }} className="min-h-screen bg-zinc-950 text-zinc-200 p-4 sm:p-6">
+      <div className="max-w-5xl mx-auto">
+        <div className="flex items-end justify-between border-b border-amber-500/40 pb-3 mb-5">
+          <div>
+            <div className="text-amber-400 text-[11px] tracking-[0.3em] uppercase">Support Pick Engine</div>
+            <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-zinc-50 mt-1">힐러 픽 어시스턴트</h1>
+          </div>
+          <button onClick={() => setAssign({})} className="text-[11px] tracking-widest uppercase border border-zinc-700 px-3 py-1.5 rounded-sm">초기화</button>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
+          <Control label="맵">
+            <select value={mapIdx} onChange={(e) => setMapIdx(Number(e.target.value))} className="w-full bg-zinc-900 border border-zinc-700 rounded-sm px-2 py-2 text-sm outline-none">
+              {MAPS.map(([m], i) => (<option key={m} value={i}>{m}</option>))}
+            </select>
+          </Control>
+          <Control label="공 / 수"><Toggle value={side} onChange={setSide} opts={[["attack", "공격"], ["defense", "수비"]]} /></Control>
+          <Control label="페이즈"><Toggle value={phase} onChange={setPhase} opts={[["early", "초반"], ["late", "막판"]]} /></Control>
+        </div>
+
+        <div className="bg-zinc-900/50 border border-zinc-800 rounded-md p-4 mb-5">
+          <div className="flex items-center gap-4 mb-3 text-[11px] tracking-widest uppercase flex-wrap">
+            <span className="text-zinc-500">클릭하면 순환:</span>
+            <Legend color="bg-sky-500" label="우리팀" /><Legend color="bg-rose-500" label="적팀" /><Legend color="bg-zinc-700" label="미선택" />
+          </div>
+          {Object.entries(HEROES).map(([role, list]) => (
+            <div key={role} className="mb-3 last:mb-0">
+              <div className="text-amber-400/80 text-[10px] tracking-[0.2em] uppercase mb-1.5">{role}</div>
+              <div className="flex flex-wrap gap-1.5">
+                {list.map(([h]) => {
+                  const st = assign[h] || NONE;
+                  const cls = st === ALLY ? "bg-sky-500/15 border-sky-500 text-sky-300" : st === ENEMY ? "bg-rose-500/15 border-rose-500 text-rose-300" : "bg-zinc-900 border-zinc-700 text-zinc-400";
+                  return (<button key={h} onClick={() => cycle(h)} className={"text-xs px-2.5 py-1.5 rounded-sm border transition-colors " + cls}>{h}</button>);
+                })}
+              </div>
+            </div>
+          ))}
+          <div className="flex gap-4 mt-3 pt-3 border-t border-zinc-800 text-[11px]">
+            <span className="text-sky-400">우리팀 {ally.length}/5</span><span className="text-rose-400">적팀 {enemy.length}/5</span>
+          </div>
+        </div>
+
+        <div className="text-amber-400 text-[11px] tracking-[0.3em] uppercase mb-3">추천 힐러 픽 {hasInput ? "" : "(조합 입력 전 — 상황 보정만 반영됨)"}</div>
+        <div className="space-y-2">
+          {ranked.map((r, i) => (
+            <div key={r.name} className={"border rounded-md p-3 " + (i === 0 ? "border-amber-500/70 bg-amber-500/5" : i < 3 ? "border-zinc-700 bg-zinc-900/40" : "border-zinc-800/60 opacity-70")}>
+              <div className="flex items-center gap-3">
+                <div className={"w-7 text-center font-black text-lg " + (i === 0 ? "text-amber-400" : "text-zinc-500")}>{i + 1}</div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-baseline gap-2">
+                    <span className={"font-bold " + (i === 0 ? "text-zinc-50 text-lg" : "text-zinc-200")}>{r.name}</span>
+                    {i === 0 && (<span className="text-[10px] tracking-widest uppercase text-amber-400 border border-amber-500/50 px-1.5 rounded-sm">best</span>)}
+                  </div>
+                  {i < 3 && (<div className="text-[11px] text-zinc-400 mt-0.5">{r.tag}</div>)}
+                  {i < 3 && r.drivers.length > 0 && (<div className="flex flex-wrap gap-1 mt-1.5">{r.drivers.map((d) => (<span key={d} className="text-[10px] text-zinc-300 bg-zinc-800 border border-zinc-700 px-1.5 py-0.5 rounded-sm">{d}</span>))}</div>)}
+                </div>
+                <div className="w-20 sm:w-28 shrink-0">
+                  <div className="h-1.5 bg-zinc-800 rounded-full overflow-hidden"><div className={"h-full " + (i === 0 ? "bg-amber-400" : "bg-zinc-500")} style={{ width: r.pct + "%" }}></div></div>
+                  <div className="text-right text-[10px] text-zinc-500 mt-0.5 tabular-nums">{r.pct}</div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <p className="text-[10px] text-zinc-600 mt-5 leading-relaxed">※ 점수는 통계가 아니라 휴리스틱(규칙) 기반 추정치다. 양 팀 조합 성향 + 공/수 + 페이즈 + 맵 보정을 합산한 상대 순위일 뿐, 절대 정답 아님. 가중치는 언제든 조정 가능.</p>
+      </div>
+    </div>
+  );
+}
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+</script>
+</body>
+</html>
