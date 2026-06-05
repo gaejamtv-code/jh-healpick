@@ -1,0 +1,318 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>힐러 픽 어시스턴트</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<style>
+  body { background:#09090b; }
+  * { -webkit-tap-highlight-color: transparent; }
+  select option { background:#18181b; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useMemo } = React;
+
+/* ===== 영웅 풀 (2026 시즌2 기준) : arch = 조합 성향 기여도 ===== */
+const HEROES = {
+  "탱": [
+    ["디바", { dive: 0.8, brawl: 0.2 }], ["도미나", { brawl: 0.7, dive: 0.3 }], ["둠피스트", { dive: 1 }],
+    ["해저드", { brawl: 0.6, dive: 0.4 }], ["정커퀸", { brawl: 1 }], ["마우가", { brawl: 1 }],
+    ["오리사", { brawl: 0.5, hold: 0.5 }], ["라마트라", { brawl: 0.7, poke: 0.3 }], ["라인하르트", { brawl: 1 }],
+    ["로드호그", { brawl: 0.6, hold: 0.4 }], ["시그마", { poke: 0.7, hold: 0.3 }], ["윈스턴", { dive: 1 }],
+    ["레킹볼", { dive: 1 }], ["자리야", { brawl: 1 }],
+  ],
+  "딜": [
+    ["안란", { dive: 0.6, brawl: 0.4 }], ["애쉬", { poke: 1 }], ["바스티온", { poke: 0.5, hold: 0.5 }],
+    ["캐서디", { poke: 0.6, brawl: 0.4 }], ["에코", { poke: 0.5, dive: 0.5 }], ["엠레", { poke: 0.6, brawl: 0.4 }],
+    ["프레야", { poke: 0.5, dive: 0.5 }], ["겐지", { dive: 1 }], ["한조", { poke: 1 }], ["정크랫", { hold: 0.6, brawl: 0.4 }],
+    ["메이", { brawl: 0.6, hold: 0.4 }], ["파라", { poke: 0.6, dive: 0.4 }], ["리퍼", { brawl: 0.6, dive: 0.4 }],
+    ["시에라", { poke: 0.6, dive: 0.4 }], ["소전", { poke: 0.6, brawl: 0.4 }], ["솔저76", { poke: 0.6, brawl: 0.4 }],
+    ["솜브라", { dive: 1 }], ["시메트라", { hold: 0.6, brawl: 0.4 }], ["토르비욘", { hold: 1 }],
+    ["트레이서", { dive: 1 }], ["벤데타", { dive: 0.8, brawl: 0.2 }], ["벤처", { dive: 0.6, brawl: 0.4 }], ["위도우", { poke: 1 }],
+  ],
+  "힐": [
+    ["아나", { poke: 0.6, hold: 0.4 }], ["바티스트", { poke: 0.5, hold: 0.5 }], ["브리기테", { brawl: 1 }],
+    ["일리아리", { poke: 0.7, hold: 0.3 }], ["제트팩캣", { dive: 0.5, poke: 0.5 }], ["주노", { dive: 0.4, poke: 0.6 }],
+    ["키리코", { dive: 0.6, brawl: 0.4 }], ["라이프위버", { hold: 0.6, brawl: 0.4 }], ["루시우", { brawl: 0.6, dive: 0.4 }],
+    ["메르시", { dive: 0.5, poke: 0.5 }], ["미즈키", { brawl: 0.5, poke: 0.5 }], ["모이라", { brawl: 0.7, dive: 0.3 }],
+    ["우양", { brawl: 0.6, dive: 0.4 }], ["젠야타", { poke: 0.7, dive: 0.3 }],
+  ],
+};
+const ROLE_OF = {};
+Object.entries(HEROES).forEach(([r, list]) => list.forEach(([n]) => (ROLE_OF[n] = r)));
+const ALL_ARCH = {};
+Object.values(HEROES).flat().forEach(([n, a]) => (ALL_ARCH[n] = a));
+
+/* ===== 내 픽(지원가) 능력치 0~3 =====
+   selfPeel 자기생존 | teamPeel 백라인보호 | poke 사거리 | brawl 근접유지
+   anti 안티/버스트/클러치궁 | dive 다이브시너지 | hold 농성·방어 ===== */
+const SUP = {
+  "아나":       { selfPeel: 0, teamPeel: 1, poke: 3, brawl: 1, anti: 3, dive: 1, hold: 2, tag: "안티·수면·나노. 사거리 깡패, 기동 0" },
+  "바티스트":   { selfPeel: 1, teamPeel: 1, poke: 2, brawl: 2, anti: 3, dive: 1, hold: 3, tag: "불사·창문. 버티기/한타 다 됨" },
+  "브리기테":   { selfPeel: 2, teamPeel: 3, poke: 0, brawl: 3, anti: 1, dive: 0, hold: 2, tag: "안티다이브 정석. 백라인 경호" },
+  "일리아리":   { selfPeel: 1, teamPeel: 1, poke: 3, brawl: 1, anti: 2, dive: 1, hold: 2, tag: "기둥+태양총. 포크전 힐러" },
+  "제트팩캣":   { selfPeel: 3, teamPeel: 0, poke: 2, brawl: 1, anti: 2, dive: 1, hold: 1, tag: "비행 서폿. 공중에서 다이브 회피+각 잡기" },
+  "주노":       { selfPeel: 2, teamPeel: 1, poke: 2, brawl: 2, anti: 2, dive: 2, hold: 1, tag: "속도링·궁. 기동+버프 만능" },
+  "키리코":     { selfPeel: 3, teamPeel: 2, poke: 1, brawl: 2, anti: 2, dive: 2, hold: 1, tag: "순보+스즈+키츠네. 다이브 천적" },
+  "라이프위버": { selfPeel: 1, teamPeel: 2, poke: 0, brawl: 2, anti: 2, dive: 0, hold: 3, tag: "그립·생명나무. 농성 버티기" },
+  "루시우":     { selfPeel: 3, teamPeel: 1, poke: 0, brawl: 3, anti: 2, dive: 2, hold: 1, tag: "속도·비트. 브롤/다이브 윤활유" },
+  "메르시":     { selfPeel: 3, teamPeel: 0, poke: 1, brawl: 1, anti: 1, dive: 1, hold: 1, tag: "포켓·부활. 히트스캔 옆에서 빛남" },
+  "미즈키":     { selfPeel: 2, teamPeel: 3, poke: 1, brawl: 2, anti: 2, dive: 1, hold: 1, tag: "사슬로 다이브 묶는 신규 서폿. 백라인 경호" },
+  "모이라":     { selfPeel: 2, teamPeel: 1, poke: 0, brawl: 3, anti: 1, dive: 1, hold: 2, tag: "페이드+고유지. 근접 난전 강" },
+  "우양":       { selfPeel: 3, teamPeel: 2, poke: 1, brawl: 2, anti: 1, dive: 2, hold: 1, tag: "기동+넉백+버스트힐. 다이브 견제 신규 서폿" },
+  "젠야타":     { selfPeel: 0, teamPeel: 0, poke: 3, brawl: 1, anti: 3, dive: 2, hold: 1, tag: "불협+초월. 폭딜 보조, 잘 죽음" },
+};
+
+/* ===== 맵 풀: mode + 성향 nudge ===== */
+const MAPS = [
+  ["맵 미선택", "혼합", {}],
+  ["왕의 길", "혼합", { brawl: 0.4 }], ["아이헨발데", "혼합", { brawl: 0.4 }], ["눔바니", "혼합", { brawl: 0.2, poke: 0.2 }],
+  ["할리우드", "혼합", { brawl: 0.3 }], ["미드타운", "혼합", { poke: 0.3 }], ["파라이수", "혼합", { brawl: 0.3 }], ["블리자드 월드", "혼합", { brawl: 0.3 }],
+  ["도라도", "호위", { poke: 0.3 }], ["66번 국도", "호위", { poke: 0.3 }], ["감시기지 지브롤터", "호위", { poke: 0.3 }],
+  ["리알토", "호위", { poke: 0.3 }], ["하바나", "호위", { poke: 0.3 }], ["정크타운", "호위", { brawl: 0.2, poke: 0.2 }], ["서킷 로얄", "호위", { poke: 0.5 }],
+  ["부산", "쟁탈", { brawl: 0.4 }], ["일리오스", "쟁탈", { brawl: 0.2, poke: 0.2 }], ["리장 타워", "쟁탈", { dive: 0.3 }],
+  ["네팔", "쟁탈", { brawl: 0.3 }], ["오아시스", "쟁탈", { poke: 0.2, dive: 0.2 }], ["사모아", "쟁탈", { brawl: 0.3 }], ["남극반도", "쟁탈", { brawl: 0.3 }],
+  ["콜로세오", "밀기", { brawl: 0.4 }], ["뉴 퀸 스트리트", "밀기", { brawl: 0.3 }], ["에스페란사", "밀기", { brawl: 0.3 }], ["루나사피", "밀기", { brawl: 0.3 }],
+  ["뉴 정크 시티", "플래시포인트", { poke: 0.2, brawl: 0.2 }], ["수라바사", "플래시포인트", { brawl: 0.3 }],
+  ["하나오카", "격돌", { brawl: 0.3 }], ["아누비스 왕좌", "격돌", { poke: 0.2, brawl: 0.2 }],
+];
+
+const MODE_INFO = {
+  "혼합":         { side: true,  phases: [["cap", "거점(점령)", 0], ["p1", "1경유지", 0.5], ["p2", "2경유지", 1]] },
+  "호위":         { side: true,  phases: [["p1", "1경유지", 0.2], ["p2", "2경유지", 0.6], ["p3", "3경유지", 1]] },
+  "밀기":         { side: false, phases: [["early", "초반 라인전", 0.3], ["mid", "중앙 접전", 0.5], ["push", "상대 진영 압박", 1]] },
+  "쟁탈":         { side: false, phases: [["r", "점령 교전", 0.4]] },
+  "플래시포인트": { side: false, phases: [["early", "초반 포인트", 0.2], ["mid", "중반", 0.5], ["late", "막판 포인트", 1]] },
+  "격돌":         { side: false, phases: [["early", "초반", 0.2], ["mid", "중반", 0.5], ["late", "막판", 1]] },
+};
+
+const DRIVER_LABEL = {
+  diveSurvive: "적 다이브 카운터·생존", pokeWar: "적 포크전 사거리 우위", brawlSustain: "적 브롤 상대 유지력·안티",
+  siege: "적 농성 돌파(포크/궁)", allyDive: "아군 다이브 시너지", allyBrawl: "아군 브롤 한타 시너지",
+  allyPoke: "아군 포크 보좌", mapBrawl: "맵 성향: 근접 브롤", mapPoke: "맵 성향: 장거리 포크",
+  mapDive: "맵 성향: 다이브", mapHold: "맵 성향: 농성", attack: "공격 강제이니시·템포",
+  defense: "수비 버티기·라인 유지", early: "초반 한타 장악", late: "막판 국면 대응",
+};
+
+const ALLY_CAP = { "탱": 1, "딜": 2, "힐": 1 };
+const ENEMY_CAP = { "탱": 1, "딜": 2, "힐": 2 };
+
+function profile(names) {
+  const p = { dive: 0, brawl: 0, poke: 0, hold: 0 };
+  if (!names.length) return p;
+  names.forEach((n) => { const a = ALL_ARCH[n] || {}; Object.keys(p).forEach((k) => (p[k] += a[k] || 0)); });
+  Object.keys(p).forEach((k) => (p[k] /= names.length));
+  return p;
+}
+
+function scoreSupport(s, ctx) {
+  const { en, al, map, side, L } = ctx;
+  const T = {
+    diveSurvive: en.dive * (s.selfPeel * 1.2 + s.teamPeel * 1.4),
+    pokeWar: en.poke * (s.poke * 1.3 + s.selfPeel * 0.4),
+    brawlSustain: en.brawl * (s.brawl * 1.0 + s.anti * 1.2),
+    siege: en.hold * (s.poke * 0.8 + s.anti * 1.0),
+    allyDive: al.dive * (s.dive * 1.3 + s.selfPeel * 0.5),
+    allyBrawl: al.brawl * (s.brawl * 1.2),
+    allyPoke: al.poke * (s.poke * 1.0),
+    mapBrawl: (map.brawl || 0) * (s.brawl * 0.6 + s.anti * 0.3),
+    mapPoke: (map.poke || 0) * (s.poke * 0.7 + s.selfPeel * 0.2),
+    mapDive: (map.dive || 0) * (s.selfPeel * 0.6 + s.teamPeel * 0.5),
+    mapHold: (map.hold || 0) * (s.hold * 0.6),
+    attack: side === "attack" ? s.anti * 0.5 + s.dive * 0.3 : 0,
+    defense: side === "defense" ? s.hold * 0.7 + s.teamPeel * 0.3 : 0,
+    early: (1 - L) * (s.anti * 0.3 + s.brawl * 0.2),
+    late: L * (side === "defense" ? s.hold * 0.6 + s.selfPeel * 0.3 : s.poke * 0.4 + s.anti * 0.4),
+  };
+  const base = (s.selfPeel + s.teamPeel + s.poke + s.brawl + s.anti + s.hold + s.dive) * 0.1;
+  const total = base + Object.values(T).reduce((a, b) => a + b, 0);
+  const drivers = Object.entries(T).filter(([, v]) => v > 0.15).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([k]) => DRIVER_LABEL[k]);
+  return { total, drivers };
+}
+
+function Toggle({ value, onChange, opts, sm }) {
+  return (<div className="flex border border-zinc-700 rounded-sm overflow-hidden">{opts.map(([v, l]) => (
+    <button key={v} onClick={() => onChange(v)} className={(sm ? "px-3 py-1.5 text-xs " : "flex-1 py-2 text-sm ") + "transition-colors " + (value === v ? "bg-amber-500 text-zinc-950 font-bold" : "bg-zinc-900 text-zinc-400")}>{l}</button>))}</div>);
+}
+
+function TeamSummary({ title, color, team, cap, extra }) {
+  const names = Object.keys(team);
+  const c = color === "sky" ? "text-sky-400 border-sky-500/30" : "text-rose-400 border-rose-500/30";
+  const roles = ["탱", "딜", "힐"];
+  const cnt = (role) => names.filter((n) => ROLE_OF[n] === role).length;
+  return (
+    <div className={"border rounded-sm p-2 " + c}>
+      <div className="flex justify-between font-bold mb-1">
+        <span>{title}</span>
+        <span className="text-zinc-500">{roles.map((r) => r + cnt(r) + "/" + cap[r]).join(" ")}</span>
+      </div>
+      <div className="text-zinc-400 text-[10px] min-h-[14px]">{names.length ? names.join(", ") : "—"}</div>
+      {extra && <div className="text-zinc-600 text-[9px] mt-0.5">{extra}</div>}
+    </div>
+  );
+}
+
+function App() {
+  const [ally, setAlly] = useState({});
+  const [enemy, setEnemy] = useState({});
+  const [target, setTarget] = useState("enemy");
+  const [mapIdx, setMapIdx] = useState(0);
+  const [side, setSide] = useState("attack");
+  const [phaseKey, setPhaseKey] = useState("cap");
+
+  const mode = MAPS[mapIdx][1];
+  const modeInfo = MODE_INFO[mode];
+  const phases = modeInfo.phases;
+  const phaseObj = phases.find((p) => p[0] === phaseKey) || phases[0];
+  const L = phaseObj[2];
+  const effSide = modeInfo.side ? side : "neutral";
+
+  const onMap = (i) => { setMapIdx(i); setPhaseKey(MODE_INFO[MAPS[i][1]].phases[0][0]); };
+
+  const allyNames = Object.keys(ally), enemyNames = Object.keys(enemy);
+  const countRole = (team, role) => Object.keys(team).filter((n) => ROLE_OF[n] === role).length;
+
+  const toggle = (name) => {
+    const role = ROLE_OF[name];
+    const setter = target === "ally" ? setAlly : setEnemy;
+    const cap = target === "ally" ? ALLY_CAP : ENEMY_CAP;
+    setter((p) => {
+      const n = { ...p };
+      if (n[name]) { delete n[name]; return n; }
+      if (countRole(p, role) >= cap[role]) return p;
+      n[name] = true; return n;
+    });
+  };
+
+  const ranked = useMemo(() => {
+    const ctx = { en: profile(enemyNames), al: profile(allyNames), map: MAPS[mapIdx][2], side: effSide, L };
+    const arr = Object.entries(SUP)
+      .filter(([name]) => !ally[name])
+      .map(([name, s]) => ({ name, tag: s.tag, ...scoreSupport(s, ctx) }));
+    arr.sort((a, b) => b.total - a.total);
+    const max = arr[0] ? arr[0].total : 1;
+    return arr.map((x) => ({ ...x, pct: Math.round((x.total / max) * 100) }));
+  }, [allyNames.join(), enemyNames.join(), mapIdx, effSide, L]);
+
+  const curCap = target === "ally" ? ALLY_CAP : ENEMY_CAP;
+  const curTeam = target === "ally" ? ally : enemy;
+  const hasInput = allyNames.length + enemyNames.length > 0;
+
+  return (
+    <div style={{ fontFamily: "ui-monospace, 'SF Mono', Menlo, monospace" }} className="min-h-screen bg-zinc-950 text-zinc-200 p-4 sm:p-6">
+      <div className="max-w-5xl mx-auto">
+        <div className="flex items-end justify-between border-b border-amber-500/40 pb-3 mb-5">
+          <div>
+            <div className="text-amber-400 text-[11px] tracking-[0.3em] uppercase">Support Pick Engine · 2026 S2</div>
+            <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-zinc-50 mt-1">힐러 픽 어시스턴트</h1>
+          </div>
+          <button onClick={() => { setAlly({}); setEnemy({}); }} className="text-[11px] tracking-widest uppercase border border-zinc-700 px-3 py-1.5 rounded-sm">초기화</button>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
+          <div>
+            <div className="text-[10px] tracking-[0.2em] uppercase text-zinc-500 mb-1.5">맵 <span className="text-amber-400/70">[{mode}]</span></div>
+            <select value={mapIdx} onChange={(e) => onMap(Number(e.target.value))} className="w-full bg-zinc-900 border border-zinc-700 rounded-sm px-2 py-2 text-sm outline-none">
+              {MAPS.map(([m, md], i) => (<option key={m + i} value={i}>{m}{i === 0 ? "" : " · " + md}</option>))}
+            </select>
+          </div>
+          <div>
+            <div className="text-[10px] tracking-[0.2em] uppercase text-zinc-500 mb-1.5">공 / 수</div>
+            {modeInfo.side
+              ? <Toggle value={side} onChange={setSide} opts={[["attack", "공격"], ["defense", "수비"]]} />
+              : <div className="border border-zinc-800 rounded-sm py-2 text-center text-xs text-zinc-600">대칭 모드 (공/수 없음)</div>}
+          </div>
+          <div>
+            <div className="text-[10px] tracking-[0.2em] uppercase text-zinc-500 mb-1.5">페이즈 / 구간</div>
+            <select value={phaseKey} onChange={(e) => setPhaseKey(e.target.value)} className="w-full bg-zinc-900 border border-zinc-700 rounded-sm px-2 py-2 text-sm outline-none">
+              {phases.map(([k, label]) => (<option key={k} value={k}>{label}</option>))}
+            </select>
+          </div>
+        </div>
+
+        <div className="bg-zinc-900/50 border border-zinc-800 rounded-md p-4 mb-5">
+          <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+            <div className="text-[10px] tracking-[0.2em] uppercase text-zinc-500">추가 대상 팀 선택 후 영웅 클릭</div>
+            <Toggle sm value={target} onChange={setTarget} opts={[["ally", "🔵 우리팀"], ["enemy", "🔴 적팀"]]} />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3 mb-3 text-[11px]">
+            <TeamSummary title="우리팀" color="sky" team={ally} cap={ALLY_CAP} extra="힐 2번째 = 추천 픽 자리" />
+            <TeamSummary title="적팀" color="rose" team={enemy} cap={ENEMY_CAP} />
+          </div>
+
+          {Object.entries(HEROES).map(([role, list]) => {
+            const full = countRole(curTeam, role) >= curCap[role];
+            return (
+              <div key={role} className="mb-3 last:mb-0">
+                <div className="text-amber-400/80 text-[10px] tracking-[0.2em] uppercase mb-1.5">
+                  {role} <span className="text-zinc-600">({target === "ally" ? "우리" : "적"} {countRole(curTeam, role)}/{curCap[role]})</span>
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {list.map(([h]) => {
+                    const inA = !!ally[h], inE = !!enemy[h];
+                    const inCur = target === "ally" ? inA : inE;
+                    const blocked = !inCur && full;
+                    return (
+                      <button key={h} onClick={() => toggle(h)} disabled={blocked}
+                        className={"relative text-xs px-2.5 py-1.5 rounded-sm border transition-colors " +
+                          (inCur
+                            ? (target === "ally" ? "bg-sky-500/20 border-sky-500 text-sky-200" : "bg-rose-500/20 border-rose-500 text-rose-200")
+                            : blocked ? "bg-zinc-950 border-zinc-800 text-zinc-700 cursor-not-allowed"
+                            : "bg-zinc-900 border-zinc-700 text-zinc-400")}>
+                        {h}
+                        {(inA || inE) && (
+                          <span className="absolute -top-1 -right-1 flex gap-0.5">
+                            {inA && <span className="w-2 h-2 rounded-full bg-sky-400 border border-zinc-950"></span>}
+                            {inE && <span className="w-2 h-2 rounded-full bg-rose-400 border border-zinc-950"></span>}
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="text-amber-400 text-[11px] tracking-[0.3em] uppercase mb-3">추천 힐러 픽 {hasInput ? "" : "(조합 입력 전 — 상황 보정만 반영)"}</div>
+        <div className="space-y-2">
+          {ranked.map((r, i) => (
+            <div key={r.name} className={"border rounded-md p-3 " + (i === 0 ? "border-amber-500/70 bg-amber-500/5" : i < 3 ? "border-zinc-700 bg-zinc-900/40" : "border-zinc-800/60 opacity-70")}>
+              <div className="flex items-center gap-3">
+                <div className={"w-7 text-center font-black text-lg " + (i === 0 ? "text-amber-400" : "text-zinc-500")}>{i + 1}</div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-baseline gap-2">
+                    <span className={"font-bold " + (i === 0 ? "text-zinc-50 text-lg" : "text-zinc-200")}>{r.name}</span>
+                    {i === 0 && (<span className="text-[10px] tracking-widest uppercase text-amber-400 border border-amber-500/50 px-1.5 rounded-sm">best</span>)}
+                  </div>
+                  {i < 3 && (<div className="text-[11px] text-zinc-400 mt-0.5">{r.tag}</div>)}
+                  {i < 3 && r.drivers.length > 0 && (<div className="flex flex-wrap gap-1 mt-1.5">{r.drivers.map((d) => (<span key={d} className="text-[10px] text-zinc-300 bg-zinc-800 border border-zinc-700 px-1.5 py-0.5 rounded-sm">{d}</span>))}</div>)}
+                </div>
+                <div className="w-20 sm:w-28 shrink-0">
+                  <div className="h-1.5 bg-zinc-800 rounded-full overflow-hidden"><div className={"h-full " + (i === 0 ? "bg-amber-400" : "bg-zinc-500")} style={{ width: r.pct + "%" }}></div></div>
+                  <div className="text-right text-[10px] text-zinc-500 mt-0.5 tabular-nums">{r.pct}</div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <p className="text-[10px] text-zinc-600 mt-5 leading-relaxed">※ 점수는 통계 아닌 휴리스틱(규칙) 기반 추정치. 조합 성향 + 공/수 + 페이즈 + 맵 보정의 상대 순위일 뿐 절대 정답 아님. 신규 영웅(도미나·엠레·안란·시에라·벤데타·미즈키·우양·제트팩캣) 가중치는 잠정값이라 더 조정 필요할 수 있음.</p>
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+</script>
+</body>
+</html>
