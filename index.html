@@ -19,7 +19,6 @@
 <script type="text/babel">
 const { useState, useMemo } = React;
 
-/* ===== 영웅 풀 (2026 시즌2 기준) : arch = 조합 성향 기여도 ===== */
 const HEROES = {
   "탱": [
     ["디바", { dive: 0.8, brawl: 0.2 }], ["도미나", { brawl: 0.7, dive: 0.3 }], ["둠피스트", { dive: 1 }],
@@ -50,27 +49,32 @@ Object.entries(HEROES).forEach(([r, list]) => list.forEach(([n]) => (ROLE_OF[n] 
 const ALL_ARCH = {};
 Object.values(HEROES).flat().forEach(([n, a]) => (ALL_ARCH[n] = a));
 
-/* ===== 내 픽(지원가) 능력치 0~3 =====
-   selfPeel 자기생존 | teamPeel 백라인보호 | poke 사거리 | brawl 근접유지
-   anti 안티/버스트/클러치궁 | dive 다이브시너지 | hold 농성·방어 ===== */
+/* tier: 현재 메타 스냅샷 (2026 S2 미드시즌, 6월) — 패치 따라 갱신 필요 */
 const SUP = {
-  "아나":       { selfPeel: 0, teamPeel: 1, poke: 3, brawl: 1, anti: 3, dive: 1, hold: 2, tag: "안티·수면·나노. 사거리 깡패, 기동 0" },
-  "바티스트":   { selfPeel: 1, teamPeel: 1, poke: 2, brawl: 2, anti: 3, dive: 1, hold: 3, tag: "불사·창문. 버티기/한타 다 됨" },
-  "브리기테":   { selfPeel: 2, teamPeel: 3, poke: 0, brawl: 3, anti: 1, dive: 0, hold: 2, tag: "안티다이브 정석. 백라인 경호" },
-  "일리아리":   { selfPeel: 1, teamPeel: 1, poke: 3, brawl: 1, anti: 2, dive: 1, hold: 2, tag: "기둥+태양총. 포크전 힐러" },
-  "제트팩캣":   { selfPeel: 3, teamPeel: 0, poke: 2, brawl: 1, anti: 2, dive: 1, hold: 1, tag: "비행 서폿. 공중에서 다이브 회피+각 잡기" },
-  "주노":       { selfPeel: 2, teamPeel: 1, poke: 2, brawl: 2, anti: 2, dive: 2, hold: 1, tag: "속도링·궁. 기동+버프 만능" },
-  "키리코":     { selfPeel: 3, teamPeel: 2, poke: 1, brawl: 2, anti: 2, dive: 2, hold: 1, tag: "순보+스즈+키츠네. 다이브 천적" },
-  "라이프위버": { selfPeel: 1, teamPeel: 2, poke: 0, brawl: 2, anti: 2, dive: 0, hold: 3, tag: "그립·생명나무. 농성 버티기" },
-  "루시우":     { selfPeel: 3, teamPeel: 1, poke: 0, brawl: 3, anti: 2, dive: 2, hold: 1, tag: "속도·비트. 브롤/다이브 윤활유" },
-  "메르시":     { selfPeel: 3, teamPeel: 0, poke: 1, brawl: 1, anti: 1, dive: 1, hold: 1, tag: "포켓·부활. 히트스캔 옆에서 빛남" },
-  "미즈키":     { selfPeel: 2, teamPeel: 3, poke: 1, brawl: 2, anti: 2, dive: 1, hold: 1, tag: "사슬로 다이브 묶는 신규 서폿. 백라인 경호" },
-  "모이라":     { selfPeel: 2, teamPeel: 1, poke: 0, brawl: 3, anti: 1, dive: 1, hold: 2, tag: "페이드+고유지. 근접 난전 강" },
-  "우양":       { selfPeel: 3, teamPeel: 2, poke: 1, brawl: 2, anti: 1, dive: 2, hold: 1, tag: "기동+넉백+버스트힐. 다이브 견제 신규 서폿" },
-  "젠야타":     { selfPeel: 0, teamPeel: 0, poke: 3, brawl: 1, anti: 3, dive: 2, hold: 1, tag: "불협+초월. 폭딜 보조, 잘 죽음" },
+  "아나":       { tier: "A", selfPeel: 0, teamPeel: 1, poke: 3, brawl: 1, anti: 3, dive: 1, hold: 2, tag: "안티·수면·나노. 사거리 깡패, 기동 0" },
+  "바티스트":   { tier: "B", selfPeel: 1, teamPeel: 1, poke: 2, brawl: 2, anti: 3, dive: 1, hold: 3, tag: "불사·창문. 버티기/한타 다 됨" },
+  "브리기테":   { tier: "B", selfPeel: 2, teamPeel: 3, poke: 0, brawl: 3, anti: 1, dive: 0, hold: 2, tag: "안티다이브 정석. 백라인 경호" },
+  "일리아리":   { tier: "A", selfPeel: 1, teamPeel: 1, poke: 3, brawl: 1, anti: 2, dive: 1, hold: 2, tag: "기둥+태양총. 포크전 힐러" },
+  "제트팩캣":   { tier: "B", selfPeel: 3, teamPeel: 0, poke: 2, brawl: 1, anti: 2, dive: 1, hold: 1, tag: "비행 서폿. 공중에서 다이브 회피+각 잡기" },
+  "주노":       { tier: "A", selfPeel: 2, teamPeel: 1, poke: 2, brawl: 2, anti: 2, dive: 2, hold: 1, tag: "속도링·궁. 기동+버프 만능" },
+  "키리코":     { tier: "S", selfPeel: 3, teamPeel: 2, poke: 1, brawl: 2, anti: 2, dive: 2, hold: 1, tag: "순보+스즈+키츠네. 다이브 천적, 현 1황" },
+  "라이프위버": { tier: "B", selfPeel: 1, teamPeel: 2, poke: 0, brawl: 2, anti: 2, dive: 0, hold: 3, tag: "그립·생명나무. 농성 버티기" },
+  "루시우":     { tier: "A", selfPeel: 3, teamPeel: 1, poke: 0, brawl: 3, anti: 2, dive: 2, hold: 1, tag: "속도·비트. 브롤/다이브 윤활유, 안정적" },
+  "메르시":     { tier: "C", selfPeel: 3, teamPeel: 0, poke: 1, brawl: 1, anti: 1, dive: 1, hold: 1, tag: "포켓·부활. 히트스캔 옆 아니면 애매" },
+  "미즈키":     { tier: "B", selfPeel: 2, teamPeel: 3, poke: 1, brawl: 2, anti: 2, dive: 1, hold: 1, tag: "사슬로 다이브 묶는 신규 서폿. 백라인 경호" },
+  "모이라":     { tier: "B", selfPeel: 2, teamPeel: 1, poke: 0, brawl: 3, anti: 1, dive: 1, hold: 2, tag: "페이드+고유지. 근접 난전 강" },
+  "우양":       { tier: "A", selfPeel: 3, teamPeel: 2, poke: 1, brawl: 2, anti: 1, dive: 2, hold: 1, tag: "기동+넉백+버스트힐. 다이브 견제 신규 서폿" },
+  "젠야타":     { tier: "B", selfPeel: 0, teamPeel: 0, poke: 3, brawl: 1, anti: 3, dive: 2, hold: 1, tag: "불협+초월. 폭딜 보조, 잘 죽음" },
+};
+const TIER_BONUS = { S: 1.5, A: 0.9, B: 0.3, C: -0.5, D: -1.2 };
+const TIER_STYLE = {
+  S: "text-amber-300 border-amber-400/70 bg-amber-400/10",
+  A: "text-emerald-300 border-emerald-500/60 bg-emerald-500/10",
+  B: "text-zinc-300 border-zinc-600 bg-zinc-700/30",
+  C: "text-orange-300 border-orange-500/50 bg-orange-500/10",
+  D: "text-rose-300 border-rose-500/50 bg-rose-500/10",
 };
 
-/* ===== 맵 풀: mode + 성향 nudge ===== */
 const MAPS = [
   ["맵 미선택", "혼합", {}],
   ["왕의 길", "혼합", { brawl: 0.4 }], ["아이헨발데", "혼합", { brawl: 0.4 }], ["눔바니", "혼합", { brawl: 0.2, poke: 0.2 }],
@@ -113,7 +117,7 @@ function profile(names) {
 }
 
 function scoreSupport(s, ctx) {
-  const { en, al, map, side, L } = ctx;
+  const { en, al, map, side, L, metaW } = ctx;
   const T = {
     diveSurvive: en.dive * (s.selfPeel * 1.2 + s.teamPeel * 1.4),
     pokeWar: en.poke * (s.poke * 1.3 + s.selfPeel * 0.4),
@@ -132,14 +136,19 @@ function scoreSupport(s, ctx) {
     late: L * (side === "defense" ? s.hold * 0.6 + s.selfPeel * 0.3 : s.poke * 0.4 + s.anti * 0.4),
   };
   const base = (s.selfPeel + s.teamPeel + s.poke + s.brawl + s.anti + s.hold + s.dive) * 0.1;
-  const total = base + Object.values(T).reduce((a, b) => a + b, 0);
+  const tierAdd = (TIER_BONUS[s.tier] || 0) * metaW;
+  const total = base + tierAdd + Object.values(T).reduce((a, b) => a + b, 0);
   const drivers = Object.entries(T).filter(([, v]) => v > 0.15).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([k]) => DRIVER_LABEL[k]);
-  return { total, drivers };
+  return { total, drivers, tier: s.tier };
 }
 
 function Toggle({ value, onChange, opts, sm }) {
   return (<div className="flex border border-zinc-700 rounded-sm overflow-hidden">{opts.map(([v, l]) => (
     <button key={v} onClick={() => onChange(v)} className={(sm ? "px-3 py-1.5 text-xs " : "flex-1 py-2 text-sm ") + "transition-colors " + (value === v ? "bg-amber-500 text-zinc-950 font-bold" : "bg-zinc-900 text-zinc-400")}>{l}</button>))}</div>);
+}
+
+function TierBadge({ t }) {
+  return <span className={"text-[10px] font-bold px-1.5 rounded-sm border " + (TIER_STYLE[t] || TIER_STYLE.B)}>{t}</span>;
 }
 
 function TeamSummary({ title, color, team, cap, extra }) {
@@ -166,6 +175,7 @@ function App() {
   const [mapIdx, setMapIdx] = useState(0);
   const [side, setSide] = useState("attack");
   const [phaseKey, setPhaseKey] = useState("cap");
+  const [metaW, setMetaW] = useState(1);
 
   const mode = MAPS[mapIdx][1];
   const modeInfo = MODE_INFO[mode];
@@ -192,14 +202,16 @@ function App() {
   };
 
   const ranked = useMemo(() => {
-    const ctx = { en: profile(enemyNames), al: profile(allyNames), map: MAPS[mapIdx][2], side: effSide, L };
+    const ctx = { en: profile(enemyNames), al: profile(allyNames), map: MAPS[mapIdx][2], side: effSide, L, metaW };
     const arr = Object.entries(SUP)
       .filter(([name]) => !ally[name])
       .map(([name, s]) => ({ name, tag: s.tag, ...scoreSupport(s, ctx) }));
     arr.sort((a, b) => b.total - a.total);
     const max = arr[0] ? arr[0].total : 1;
-    return arr.map((x) => ({ ...x, pct: Math.round((x.total / max) * 100) }));
-  }, [allyNames.join(), enemyNames.join(), mapIdx, effSide, L]);
+    const min = arr[arr.length - 1] ? arr[arr.length - 1].total : 0;
+    const span = max - min || 1;
+    return arr.map((x) => ({ ...x, pct: Math.round(((x.total - min) / span) * 90 + 10) }));
+  }, [allyNames.join(), enemyNames.join(), mapIdx, effSide, L, metaW]);
 
   const curCap = target === "ally" ? ALLY_CAP : ENEMY_CAP;
   const curTeam = target === "ally" ? ally : enemy;
@@ -216,7 +228,7 @@ function App() {
           <button onClick={() => { setAlly({}); setEnemy({}); }} className="text-[11px] tracking-widest uppercase border border-zinc-700 px-3 py-1.5 rounded-sm">초기화</button>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
           <div>
             <div className="text-[10px] tracking-[0.2em] uppercase text-zinc-500 mb-1.5">맵 <span className="text-amber-400/70">[{mode}]</span></div>
             <select value={mapIdx} onChange={(e) => onMap(Number(e.target.value))} className="w-full bg-zinc-900 border border-zinc-700 rounded-sm px-2 py-2 text-sm outline-none">
@@ -235,6 +247,12 @@ function App() {
               {phases.map(([k, label]) => (<option key={k} value={k}>{label}</option>))}
             </select>
           </div>
+        </div>
+
+        <div className="flex items-center gap-3 mb-5">
+          <span className="text-[10px] tracking-[0.2em] uppercase text-zinc-500">메타(티어) 반영</span>
+          <Toggle sm value={metaW} onChange={setMetaW} opts={[[0.5, "약"], [1, "중"], [1.8, "강"]]} />
+          <span className="text-[10px] text-zinc-600">강할수록 현재 S/A티어 우대, 쓰레기티어 더 깎임</span>
         </div>
 
         <div className="bg-zinc-900/50 border border-zinc-800 rounded-md p-4 mb-5">
@@ -283,15 +301,16 @@ function App() {
           })}
         </div>
 
-        <div className="text-amber-400 text-[11px] tracking-[0.3em] uppercase mb-3">추천 힐러 픽 {hasInput ? "" : "(조합 입력 전 — 상황 보정만 반영)"}</div>
+        <div className="text-amber-400 text-[11px] tracking-[0.3em] uppercase mb-3">추천 힐러 픽 {hasInput ? "" : "(조합 입력 전 — 상황+티어 보정만 반영)"}</div>
         <div className="space-y-2">
           {ranked.map((r, i) => (
             <div key={r.name} className={"border rounded-md p-3 " + (i === 0 ? "border-amber-500/70 bg-amber-500/5" : i < 3 ? "border-zinc-700 bg-zinc-900/40" : "border-zinc-800/60 opacity-70")}>
               <div className="flex items-center gap-3">
                 <div className={"w-7 text-center font-black text-lg " + (i === 0 ? "text-amber-400" : "text-zinc-500")}>{i + 1}</div>
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-baseline gap-2">
+                  <div className="flex items-baseline gap-2 flex-wrap">
                     <span className={"font-bold " + (i === 0 ? "text-zinc-50 text-lg" : "text-zinc-200")}>{r.name}</span>
+                    <TierBadge t={r.tier} />
                     {i === 0 && (<span className="text-[10px] tracking-widest uppercase text-amber-400 border border-amber-500/50 px-1.5 rounded-sm">best</span>)}
                   </div>
                   {i < 3 && (<div className="text-[11px] text-zinc-400 mt-0.5">{r.tag}</div>)}
@@ -306,7 +325,7 @@ function App() {
           ))}
         </div>
 
-        <p className="text-[10px] text-zinc-600 mt-5 leading-relaxed">※ 점수는 통계 아닌 휴리스틱(규칙) 기반 추정치. 조합 성향 + 공/수 + 페이즈 + 맵 보정의 상대 순위일 뿐 절대 정답 아님. 신규 영웅(도미나·엠레·안란·시에라·벤데타·미즈키·우양·제트팩캣) 가중치는 잠정값이라 더 조정 필요할 수 있음.</p>
+        <p className="text-[10px] text-zinc-600 mt-5 leading-relaxed">※ 점수 = 조합 궁합 + 공/수 + 페이즈 + 맵 + 현재 티어(메타) 보정의 상대 순위. 통계 아닌 휴리스틱 추정치라 절대 정답 아님. 티어는 2026 S2 미드시즌(6월) 스냅샷 — 키리코 S / 아나·일리아리·우양·주노·루시우 A / 메르시 C 등. 패치 바뀌면 갱신 필요.</p>
       </div>
     </div>
   );
